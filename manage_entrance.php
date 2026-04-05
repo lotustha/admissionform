@@ -16,8 +16,9 @@ if (!in_array($admin_role, ['Super Admin', 'Academic Staff'])) {
 
 $msg = '';
 
-// Handle Add Entrance Schedule
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
+// Handle Add/Edit Entrance Schedule
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_schedule'])) {
+    $schedule_id = !empty($_POST['schedule_id']) ? (int)$_POST['schedule_id'] : null;
     $class_name = trim($_POST['class_name']);
     $faculty_id = !empty($_POST['faculty_id']) ? (int)$_POST['faculty_id'] : null;
     $exam_date = $_POST['exam_date'];
@@ -26,9 +27,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_schedule'])) {
     $total_capacity = (int)$_POST['total_capacity'];
     
     if (!empty($class_name) && !empty($exam_date) && !empty($exam_time) && !empty($venue) && $total_capacity > 0) {
-        $stmt = $pdo->prepare("INSERT INTO entrance_schedules (class_name, faculty_id, exam_date, exam_time, venue, total_capacity) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$class_name, $faculty_id, $exam_date, $exam_time, $venue, $total_capacity]);
-        $msg = "Entrance schedule added successfully.";
+        if ($schedule_id) {
+            $stmt = $pdo->prepare("UPDATE entrance_schedules SET class_name=?, faculty_id=?, exam_date=?, exam_time=?, venue=?, total_capacity=? WHERE id=?");
+            $stmt->execute([$class_name, $faculty_id, $exam_date, $exam_time, $venue, $total_capacity, $schedule_id]);
+            $msg = "Entrance schedule updated successfully.";
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO entrance_schedules (class_name, faculty_id, exam_date, exam_time, venue, total_capacity) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$class_name, $faculty_id, $exam_date, $exam_time, $venue, $total_capacity]);
+            $msg = "Entrance schedule added successfully.";
+        }
     } else {
         $msg = "Please fill in all required fields properly.";
     }
@@ -122,10 +129,11 @@ function build_url($updates) {
             <!-- Add Forms Column -->
             <div class="lg:col-span-1 space-y-6">
                 
-                <!-- Add Schedule Form -->
+                <!-- Add/Edit Schedule Form -->
                 <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
-                    <h3 class="font-bold text-lg text-gray-800 mb-4 border-b pb-2">Add Time Slot</h3>
-                    <form method="POST">
+                    <h3 class="font-bold text-lg text-gray-800 mb-4 border-b pb-2" id="form-title">Add Time Slot</h3>
+                    <form method="POST" id="schedule-form">
+                        <input type="hidden" name="schedule_id" id="schedule_id" value="">
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
                             <select name="class_name" required class="w-full rounded border-gray-300 border p-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-white">
@@ -159,9 +167,12 @@ function build_url($updates) {
                         </div>
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Total Capacity</label>
-                            <input type="number" name="total_capacity" required placeholder="e.g. 50" min="1" class="w-full rounded border-gray-300 border p-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm">
+                            <input type="number" name="total_capacity" id="total_capacity" required placeholder="e.g. 50" min="1" class="w-full rounded border-gray-300 border p-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm">
                         </div>
-                        <button type="submit" name="add_schedule" class="w-full bg-emerald-600 text-white font-medium py-2 rounded hover:bg-emerald-700 transition duration-150 text-sm">Add Schedule</button>
+                        <div class="flex gap-2">
+                            <button type="submit" name="save_schedule" id="submit-btn" class="w-full bg-emerald-600 text-white font-medium py-2 rounded hover:bg-emerald-700 transition duration-150 text-sm">Add Schedule</button>
+                            <button type="button" id="cancel-btn" class="hidden w-1/3 bg-gray-200 text-gray-700 font-medium py-2 rounded hover:bg-gray-300 transition duration-150 text-sm" onclick="resetForm()">Cancel</button>
+                        </div>
                     </form>
                 </div>
 
@@ -236,8 +247,9 @@ function build_url($updates) {
                                                 ?>
                                                 <span class="text-gray-800"><?php echo $booked; ?> / <?php echo htmlspecialchars($s['total_capacity']); ?></span>
                                             </td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-right font-medium">
+                                            <td class="px-4 py-3 whitespace-nowrap text-right font-medium flex items-center justify-end">
                                                 <a href="exam_attendance.php?id=<?php echo $s['id']; ?>" class="text-blue-600 hover:text-blue-800 text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1.5 rounded transition shadow-sm mr-2 border border-blue-200">View Students</a>
+                                                <button type="button" onclick='editSchedule(<?php echo json_encode($s, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>)' class="text-amber-600 hover:text-amber-800 text-xs bg-amber-50 hover:bg-amber-100 px-2 py-1.5 rounded transition shadow-sm mr-2 border border-amber-200">Edit</button>
                                                 <a href="?delete_schedule=<?php echo $s['id']; ?>" onclick="return confirm('Are you sure you want to delete this schedule?');" class="text-red-500 hover:text-red-700 text-xs bg-red-50 hover:bg-red-100 px-2 py-1.5 rounded transition shadow-sm border border-red-200">Delete</a>
                                             </td>
                                         </tr>
@@ -283,5 +295,37 @@ function build_url($updates) {
         </div>
     </main>
 </div>
+    
+    <script>
+        function editSchedule(data) {
+            document.getElementById('form-title').textContent = 'Edit Time Slot';
+            document.getElementById('submit-btn').textContent = 'Update Schedule';
+            document.getElementById('cancel-btn').classList.remove('hidden');
+            document.getElementById('submit-btn').classList.remove('w-full');
+            document.getElementById('submit-btn').classList.add('w-2/3');
+            
+            document.getElementById('schedule_id').value = data.id;
+            document.querySelector('[name="class_name"]').value = data.class_name;
+            document.querySelector('[name="faculty_id"]').value = data.faculty_id || '';
+            document.querySelector('[name="exam_date"]').value = data.exam_date;
+            document.querySelector('[name="exam_time"]').value = data.exam_time;
+            document.querySelector('[name="venue"]').value = data.venue;
+            document.getElementById('total_capacity').value = data.total_capacity;
+            
+            // Scroll to form
+            document.getElementById('schedule-form').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function resetForm() {
+            document.getElementById('form-title').textContent = 'Add Time Slot';
+            document.getElementById('submit-btn').textContent = 'Add Schedule';
+            document.getElementById('cancel-btn').classList.add('hidden');
+            document.getElementById('submit-btn').classList.remove('w-2/3');
+            document.getElementById('submit-btn').classList.add('w-full');
+            
+            document.getElementById('schedule_id').value = '';
+            document.getElementById('schedule-form').reset();
+        }
+    </script>
 </body>
 </html>
