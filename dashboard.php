@@ -87,6 +87,15 @@ for ($i = 6; $i >= 0; $i--) {
     $chart_labels[] = date('M d', strtotime($d));
     $chart_data[] = (int)($trends[$d] ?? 0);
 }
+
+// Find if any exam is happening today
+$today_exam = null;
+foreach ($upcoming_exams as $ue) {
+    if ($ue['exam_date'] === date('Y-m-d')) {
+        $today_exam = $ue;
+        break;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -139,8 +148,29 @@ for ($i = 6; $i >= 0; $i--) {
         </div>
         <div class="text-left md:text-right text-sm text-gray-400 flex flex-col items-start md:items-end">
             <div class="font-bold text-gray-900"><?php echo date('l, F j, Y'); ?></div>
-            <div class="text-xs font-semibold mt-0.5"><?php echo htmlspecialchars($settings['school_name'] ?? ''); ?></div>
+            <div class="text-xs font-semibold mt-0.5 text-gray-500">
+                <?php echo htmlspecialchars($settings['school_name'] ?? ''); ?> &bull; 
+                <span class="text-emerald-600 font-bold">v<?php echo defined('APP_VERSION') ? APP_VERSION : '1.0'; ?></span>
+            </div>
             <div class="flex flex-wrap gap-2 mt-3">
+                
+                <button onclick="openDashboardScanner()" class="inline-flex py-1.5 px-3 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 rounded-lg shadow-sm transition-all items-center gap-1.5 font-bold text-xs border border-transparent">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H5v3a1 1 0 01-2 0V4zm14-1a1 1 0 011 1v3a1 1 0 01-2 0V5h-3a1 1 0 010-2h4zM3 20a1 1 0 001 1h4a1 1 0 000-2H5v-3a1 1 0 00-2 0v4zm14 1a1 1 0 001-1v-4a1 1 0 00-2 0v3h-3a1 1 0 000 2h4z"></path></svg>
+                    <span>Scan Admit Card (PC)</span>
+                </button>
+                
+                <button onclick="linkCompanion()" class="inline-flex py-1.5 px-3 bg-fuchsia-600 text-white hover:bg-fuchsia-700 rounded-lg shadow-sm transition-all items-center gap-1.5 font-bold text-xs border border-transparent">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    <span>Link Mobile Scanner</span>
+                </button>
+                
+                <?php if ($today_exam): ?>
+                <a href="exam_attendance.php?id=<?php echo $today_exam['id']; ?>" class="inline-flex py-1.5 px-3 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg shadow-sm transition-all items-center gap-1.5 font-bold text-xs border border-transparent animate-pulse">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    <span>Live Attendance (Today)</span>
+                </a>
+                <?php endif; ?>
+
                 <button id="editLayoutBtn" class="inline-flex py-1.5 px-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg shadow-sm transition-all items-center gap-1.5 font-bold text-xs border border-transparent">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                     <span>Edit Layout</span>
@@ -385,6 +415,81 @@ for ($i = 6; $i >= 0; $i--) {
 </div>
 </main></div>
 
+<!-- Dashboard Scanner Modal -->
+<div id="dash-scanner-modal" class="fixed inset-0 z-50 hidden bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="dash-scanner-box">
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h3 class="font-bold text-emerald-800">Scan QR to View Details</h3>
+            <button onclick="closeDashboardScanner()" class="text-gray-400 hover:text-red-500 bg-gray-200 p-2 rounded-full transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="p-4 bg-black relative">
+            <div id="reader-error" class="hidden absolute inset-0 z-10 bg-black/90 flex flex-col items-center justify-center text-white p-4 text-center">
+                <p class="font-bold mb-2 text-rose-500">Camera Access Denied or HTTPS Required</p>
+                <p class="text-xs text-gray-400">Please provide permissions and ensure you are using a secure connection.</p>
+            </div>
+            <div id="reader" class="w-full min-h-[300px]"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+let dashboardScanner = null;
+
+function openDashboardScanner() {
+    const modal = document.getElementById('dash-scanner-modal');
+    const box = document.getElementById('dash-scanner-box');
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        box.classList.remove('scale-95', 'opacity-0');
+        box.classList.add('scale-100', 'opacity-100');
+    }, 10);
+
+    if (!dashboardScanner) dashboardScanner = new Html5Qrcode("reader");
+    dashboardScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, 
+        function(decodedText) {
+            try {
+                const payload = JSON.parse(decodedText);
+                if (payload.id) {
+                    dashboardScanner.stop();
+                    window.location.href = `view_application.php?id=${payload.id}`;
+                }
+            } catch(e) { /* ignore invalid formats */ }
+        }, 
+        function(error) {}
+    ).catch(err => {
+        document.getElementById('reader-error').classList.remove('hidden');
+    });
+}
+
+function closeDashboardScanner() {
+    if (dashboardScanner && dashboardScanner.isScanning) {
+        dashboardScanner.stop().catch(err => console.error(err));
+    }
+    const modal = document.getElementById('dash-scanner-modal');
+    const box = document.getElementById('dash-scanner-box');
+    box.classList.remove('scale-100', 'opacity-100');
+    box.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 200);
+}
+</script>
+
+<script src="js/companion_link.js"></script>
+<script>
+    function linkCompanion() {
+        initCompanionScanner(function(decodedText) {
+            try {
+                const payload = JSON.parse(decodedText);
+                if (payload.id) {
+                    window.location.href = `view_application.php?id=${payload.id}&ref=mobilescan`;
+                }
+            } catch(e) { console.error('Invalid QR JSON', e); }
+        });
+    }
+</script>
+
 <script>
 let isEditMode = false;
 
@@ -395,7 +500,9 @@ const grid = GridStack.init({
     minRow: 1,
     handle: '.drag-handle',
     float: true,
-    staticGrid: true // Static default (no resize flags show, no dragging)
+    staticGrid: true, // Static default
+    disableOneColumnMode: false,
+    oneColumnModeDomSort: true
 });
 
 // Load saved layout

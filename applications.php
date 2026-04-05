@@ -9,8 +9,15 @@ if (!isset($_SESSION['admin_id'])) {
     exit;
 }
 
+$admin_role = $_SESSION['admin_role'] ?? 'Super Admin';
+// All roles can view; only Super Admin and Academic Staff can modify
+$can_modify = in_array($admin_role, ['Super Admin', 'Academic Staff']);
+// Cashier can collect payment
+$can_collect_payment = in_array($admin_role, ['Super Admin', 'Cashier']);
+
 // Status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
+    if (!$can_modify) { header("Location: applications.php"); exit; }
     $status = $_POST['status'] ?? '';
     $inquiry_id = $_POST['inquiry_id'] ?? '';
     if ($status && $inquiry_id) {
@@ -31,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_inquiry'])) {
+    if (!$can_modify) { header("Location: applications.php"); exit; }
     $inquiry_id = $_POST['inquiry_id'] ?? '';
     if ($inquiry_id) {
         $stmt_check = $pdo->prepare("SELECT pp_photo_path, document_path, birth_cert_path FROM admission_inquiries WHERE id = ?");
@@ -52,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_inquiry'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
+    if (!$can_collect_payment) { header("Location: applications.php"); exit; }
     $inquiry_id = $_POST['inquiry_id'] ?? '';
     if ($inquiry_id) {
         $settings = getSchoolSettings($pdo);

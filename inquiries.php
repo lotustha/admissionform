@@ -8,6 +8,9 @@ if (!isset($_SESSION['admin_id'])) {
     exit;
 }
 
+$admin_role = $_SESSION['admin_role'] ?? 'Super Admin';
+// All roles can view inquiries (Super Admin, Academic Staff, Cashier, Viewer)
+
 
 $search = $_GET['search'] ?? '';
 $status_filter = $_GET['status_filter'] ?? '';

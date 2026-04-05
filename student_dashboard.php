@@ -75,12 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             previous_school_name = ?, previous_board = ?, gpa_or_percentage = ?, see_symbol_no = ?
             WHERE id = ?";
             
+        $ucname = fn($v) => ucwords(strtolower(trim($v ?? '')));
         $pd_params = [
-            $_POST['student_first_name'], $_POST['student_last_name'], $_POST['student_email'], $_POST['dob_bs'], $_POST['dob_ad'], $_POST['gender'],
+            $ucname($_POST['student_first_name']), $ucname($_POST['student_last_name']), $_POST['student_email'], $_POST['dob_bs'], $_POST['dob_ad'], $_POST['gender'],
             $_POST['address_province'], $_POST['address_district'], $_POST['address_municipality'], $_POST['address_ward_village'],
-            $_POST['father_name'], $_POST['father_occupation'], $_POST['father_contact'],
-            $_POST['mother_name'], $_POST['mother_occupation'], $_POST['mother_contact'],
-            $_POST['local_guardian_name'], $_POST['guardian_contact'], $_POST['guardian_relation'],
+            $ucname($_POST['father_name']), $_POST['father_occupation'], $_POST['father_contact'],
+            $ucname($_POST['mother_name']), $_POST['mother_occupation'], $_POST['mother_contact'],
+            $ucname($_POST['local_guardian_name']), $_POST['guardian_contact'], $_POST['guardian_relation'],
             $_POST['previous_school_name'], $_POST['previous_board'], $_POST['gpa_or_percentage'], $_POST['see_symbol_no'],
             $student_id
         ];
@@ -240,6 +241,15 @@ $pay_badge = $paymentClasses[$pay_status] ?? 'bg-yellow-100 text-yellow-800 bord
                     <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     Documents
                 </a>
+                <a href="?tab=results" class="whitespace-nowrap px-4 py-3 rounded-lg text-sm font-semibold transition-colors <?php echo $tab === 'results' ? 'bg-violet-50 text-violet-700' : 'text-gray-600 hover:bg-gray-50'; ?> flex items-center gap-2">
+                    <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Exam Results
+                    <?php if (!empty($result['result_published_at'])): ?>
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <?php else: ?>
+                        <span class="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">—</span>
+                    <?php endif; ?>
+                </a>
                 <a href="?tab=edit_profile" class="whitespace-nowrap px-4 py-3 rounded-lg text-sm font-semibold transition-colors <?php echo $tab === 'edit_profile' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'; ?> flex items-center gap-2">
                     <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                     Edit App
@@ -255,115 +265,192 @@ $pay_badge = $paymentClasses[$pay_status] ?? 'bg-yellow-100 text-yellow-800 bord
                 <?php endif; ?>
             </div>
         </div>
+
+        <!-- Contact School Card -->
+        <div class="bg-indigo-50/50 rounded-xl shadow-sm border border-indigo-100 overflow-hidden mt-6 hidden md:block">
+            <div class="p-4 border-b border-indigo-50 bg-indigo-50">
+                <h3 class="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                    Contact School
+                </h3>
+            </div>
+            <div class="p-4 space-y-3 text-sm">
+                <?php if (!empty($settings['contact_phone'])): ?>
+                <div class="flex items-start gap-2 text-indigo-800">
+                    <svg class="w-4 h-4 mt-0.5 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                    <span class="font-medium"><?php echo htmlspecialchars($settings['contact_phone']); ?></span>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($settings['org_email'])): ?>
+                <div class="flex items-start gap-2 text-indigo-800">
+                    <svg class="w-4 h-4 mt-0.5 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    <span class="font-medium break-all"><?php echo htmlspecialchars($settings['org_email']); ?></span>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($settings['address'])): ?>
+                <div class="flex items-start gap-2 text-indigo-800">
+                    <svg class="w-4 h-4 mt-0.5 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span class="font-medium"><?php echo htmlspecialchars($settings['address']); ?></span>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
     </div>
 
     <!-- Main Content Area -->
-    <div class="flex-1 bg-white rounded-xl shadow-sm border border-emerald-100 p-6 md:p-8">
+    <div class="flex-1">
+        <?php if (!empty($settings['announcement_text'])): ?>
+        <div class="bg-blue-50 border-l-4 border-blue-500 rounded-r-xl shadow-sm p-4 mb-6 flex gap-3 text-blue-800">
+            <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+            <div>
+                <h4 class="font-bold text-sm mb-1">Announcement</h4>
+                <p class="text-sm font-medium leading-relaxed"><?php echo nl2br(htmlspecialchars($settings['announcement_text'])); ?></p>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <div class="bg-white rounded-xl shadow-sm border border-emerald-100 p-6 md:p-8">
         
         <!-- OVERVIEW TAB -->
         <?php if ($tab === 'overview'): ?>
-            <!-- EXAM RESULT DISPLAY -->
-            <?php 
-            if ($result['form_type'] === 'Admission' && !empty($result['result_published_at'])): 
-                $rs_status = $result['result_status'] ?? 'Pending';
-                $rs_marks = $result['marks_obtained'] ?? null;
-                $rs_total = (float)($result['total_marks'] ?? 100);
-                $rs_percentage = ($rs_total > 0 && $rs_marks !== null) ? round(((float)$rs_marks / $rs_total) * 100, 1) : 0;
-                $rs_remarks = $result['result_remarks'] ?? '';
+            
+            <!-- Application Status Timeline -->
+            <div class="mb-8">
+                <h2 class="text-xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-100">Application Status</h2>
+                <?php if ($result['status'] === 'Rejected'): ?>
+                     <div class="bg-red-50 text-red-800 p-4 rounded-xl border border-red-200 flex items-center gap-3">
+                         <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                         <div>
+                             <h4 class="font-bold">Application Rejected</h4>
+                             <p class="text-sm text-red-600 mt-0.5">Unfortunately, your application was not selected for admission.</p>
+                         </div>
+                     </div>
+                <?php else: ?>
+                <div class="relative flex justify-between">
+                    <!-- Progress Bar Background -->
+                    <div class="absolute top-5 left-[10%] right-[10%] h-1 bg-gray-200 rounded-full z-0"></div>
+                    <?php
+                    $is_paid = ($result['payment_status'] ?? 'Pending') === 'Paid';
+                    $has_exam = !empty($result['exam_date']);
+                    $has_exam_result = ($result['attendance_status'] === 'Present' || in_array($result['result_status'] ?? '', ['Pass','Fail']));
+                    $has_exam_pass = (($result['result_status'] ?? '') === 'Pass');
+                    $is_interviewed = in_array($result['interview_status'] ?? 'Pending', ['Scheduled', 'Selected', 'Waitlisted', 'Rejected']);
+                    $is_admitted = ($result['status'] === 'Admitted');
+                    
+                    // Build timeline dynamically
+                    $timeline_steps = [];
+                    $timeline_steps[] = ['key' => 'submitted', 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>', 'label' => 'Submitted', 'desc' => 'Received'];
+                    $timeline_steps[] = ['key' => 'review', 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>', 'label' => 'Under Review', 'desc' => 'Verification'];
+                    $timeline_steps[] = ['key' => 'payment', 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>', 'label' => 'Payment', 'desc' => $is_paid ? 'Confirmed' : 'Pending'];
+                    $timeline_steps[] = ['key' => 'entrance', 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>', 'label' => 'Entrance', 'desc' => $has_exam_result ? ($has_exam_pass ? 'Passed' : 'Completed') : 'Scheduled'];
+                    
+                    // Only show Interview step if Entrance is Passed OR they have an interview scheduled
+                    if ($has_exam_pass || $is_interviewed) {
+                        $timeline_steps[] = ['key' => 'interview', 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"></path>', 'label' => 'Interview', 'desc' => $is_interviewed ? $result['interview_status'] : 'Pending'];
+                    }
+                    $timeline_steps[] = ['key' => 'admitted', 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>', 'label' => 'Admitted', 'desc' => 'Final Enrollment'];
+
+                    // Re-assign sequential IDs
+                    foreach ($timeline_steps as $k => &$s) { $s['id'] = $k; }
+
+                    $curr_step_key = 'submitted';
+                    if ($result['status'] === 'Pending') $curr_step_key = 'review';
+                    if ($result['status'] === 'Approved') {
+                        $curr_step_key = $is_paid ? 'entrance' : 'payment';
+                        if ($is_paid && $has_exam_result) {
+                            $curr_step_key = $has_exam_pass ? 'interview' : 'entrance';
+                        }
+                    }
+                    if ($is_interviewed) $curr_step_key = 'interview';
+                    if ($result['interview_status'] === 'Selected') $curr_step_key = 'interview'; // they passed interview, ready to admit
+                    if ($is_admitted) $curr_step_key = 'admitted';
+
+                    $curr_step_idx = 0;
+                    foreach ($timeline_steps as $index => $s) {
+                        if ($s['key'] === $curr_step_key) { $curr_step_idx = $index; break; }
+                    }
+
+                    // Active Progress Bar
+                    $max_idx = count($timeline_steps) - 1;
+                    $progress_pct = ($max_idx > 0) ? ($curr_step_idx / $max_idx) * 100 : 0;
+                    echo '<div class="absolute top-5 left-[10%] h-1 bg-emerald-500 rounded-full z-0 transition-all duration-500" style="width: calc('.$progress_pct.'% - 20%);"></div>';
+
+                    foreach ($timeline_steps as $step): 
+                        $is_completed = $curr_step_idx > $step['id'];
+                        $is_current = $curr_step_idx === $step['id'];
+                        
+                        $circle_class = "bg-gray-100 text-gray-400 border-4 border-white";
+                        $text_class = "text-gray-400 font-medium";
+                        
+                        if ($is_completed) {
+                            $circle_class = "bg-emerald-500 text-white border-4 border-white shadow-sm";
+                            $text_class = "text-emerald-700 font-bold";
+                        } else if ($is_current) {
+                            $circle_class = "bg-white text-emerald-600 border-4 border-emerald-500 shadow-md ring-4 ring-emerald-50";
+                            $text_class = "text-emerald-800 font-extrabold";
+                        }
+                    ?>
+                        <div class="relative z-10 flex flex-col items-center flex-1">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3 <?php echo $circle_class; ?>">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><?php echo $step['icon']; ?></svg>
+                            </div>
+                            <div class="text-center w-full px-1">
+                                <div class="text-[11px] md:text-sm uppercase tracking-wide <?php echo $text_class; ?> leading-tight"><?php echo $step['label']; ?></div>
+                                <div class="text-[10px] md:text-xs text-gray-500 mt-1 hidden sm:block"><?php echo $step['desc']; ?></div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Compact result banner on overview (links to Results tab) -->
+            <?php if ($result['form_type'] === 'Admission' && !empty($result['result_published_at'])): 
+                $rs_status_ov = $result['result_status'] ?? 'Pending';
+                $rs_marks_ov = $result['marks_obtained'] ?? null;
+                $rs_total_ov = (float)($result['total_marks'] ?? 100);
+                $rs_pct_ov = ($rs_total_ov > 0 && $rs_marks_ov !== null) ? round(((float)$rs_marks_ov / $rs_total_ov) * 100, 1) : 0;
             ?>
-            <h2 class="text-xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-100 flex justify-between items-center">
-                <span>Entrance Examination Result</span>
-                <a href="print_result.php?id=<?php echo $result['id']; ?>" class="text-xs font-bold bg-violet-100 hover:bg-violet-200 text-violet-700 px-4 py-2 rounded-lg transition inline-flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                    View / Print
-                </a>
-            </h2>
-
-            <?php if ($rs_status === 'Pass'): ?>
-            <!-- PASSED -->
-            <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-8 text-center relative overflow-hidden mb-8">
-                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500"></div>
-                <div class="text-5xl mb-4">🎉</div>
-                <h2 class="text-2xl font-black text-emerald-800 mb-2">Congratulations!</h2>
-                <p class="text-emerald-600 font-medium mb-6">You have passed the entrance examination</p>
-                
-                <div class="bg-white/80 rounded-2xl p-6 max-w-sm mx-auto mb-6 shadow-sm border border-emerald-100">
-                    <div class="inline-block bg-emerald-600 text-white font-bold text-xs px-4 py-1.5 rounded-full uppercase tracking-wider mb-4">PASSED</div>
-                    <div>
-                        <span class="text-5xl font-black text-emerald-700"><?php echo htmlspecialchars($rs_marks); ?></span>
-                        <span class="text-xl text-gray-400 font-bold">/ <?php echo htmlspecialchars($rs_total); ?></span>
+            <a href="?tab=results" class="block mb-6 group">
+                <div class="rounded-xl border p-4 flex items-center justify-between transition-all hover:shadow-md <?php 
+                    if ($rs_status_ov === 'Pass') echo 'bg-emerald-50 border-emerald-200 hover:border-emerald-300';
+                    elseif ($rs_status_ov === 'Fail') echo 'bg-red-50 border-red-200 hover:border-red-300';
+                    elseif ($rs_status_ov === 'Waitlisted') echo 'bg-amber-50 border-amber-200 hover:border-amber-300';
+                    else echo 'bg-gray-50 border-gray-200';
+                ?>">
+                    <div class="flex items-center gap-4">
+                        <div class="text-3xl"><?php echo $rs_status_ov === 'Pass' ? '🎉' : ($rs_status_ov === 'Fail' ? '📋' : '⏳'); ?></div>
+                        <div>
+                            <div class="font-bold text-gray-900 text-sm">Entrance Exam Result Published</div>
+                            <div class="text-xs mt-0.5 <?php echo $rs_status_ov === 'Pass' ? 'text-emerald-600' : ($rs_status_ov === 'Fail' ? 'text-red-600' : 'text-amber-600'); ?> font-semibold">
+                                <?php echo $rs_status_ov === 'Pass' ? 'PASSED' : ($rs_status_ov === 'Fail' ? 'NOT SELECTED' : 'WAITLISTED'); ?>
+                                — <?php echo htmlspecialchars($rs_marks_ov); ?>/<?php echo htmlspecialchars($rs_total_ov); ?> (<?php echo $rs_pct_ov; ?>%)
+                            </div>
+                        </div>
                     </div>
-                    <p class="text-lg font-bold text-emerald-600 mt-2"><?php echo $rs_percentage; ?>%</p>
-                </div>
-
-                <?php if (!empty($rs_remarks)): ?>
-                <div class="bg-white/60 rounded-lg p-3 max-w-sm mx-auto mb-4 border border-emerald-100">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Remarks</p>
-                    <p class="text-sm text-gray-700"><?php echo htmlspecialchars($rs_remarks); ?></p>
-                </div>
-                <?php endif; ?>
-
-                <div class="bg-emerald-100 border border-emerald-200 rounded-xl p-5 max-w-md mx-auto mt-4">
-                    <h3 class="font-bold text-emerald-800 text-sm mb-2">✅ Next Step: Complete Enrollment</h3>
-                    <p class="text-sm text-emerald-700 leading-relaxed">Please visit the school administration office with your original documents to complete the enrollment process.</p>
-                </div>
-            </div>
-
-            <?php elseif ($rs_status === 'Fail'): ?>
-            <!-- FAILED -->
-            <div class="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center mb-8">
-                <div class="text-4xl mb-4">📋</div>
-                <h2 class="text-xl font-bold text-gray-700 mb-2">Entrance Exam Result</h2>
-                
-                <div class="bg-white rounded-2xl p-6 max-w-sm mx-auto mb-6 shadow-sm border border-gray-200 mt-4">
-                    <div class="inline-block bg-red-500 text-white font-bold text-xs px-4 py-1.5 rounded-full uppercase tracking-wider mb-4">NOT SELECTED</div>
-                    <div>
-                        <span class="text-5xl font-black text-red-600"><?php echo htmlspecialchars($rs_marks); ?></span>
-                        <span class="text-xl text-gray-400 font-bold">/ <?php echo htmlspecialchars($rs_total); ?></span>
+                    <div class="text-xs font-bold text-gray-400 group-hover:text-emerald-600 transition-colors flex items-center gap-1">
+                        View Details
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     </div>
-                    <p class="text-lg font-bold text-red-500 mt-2"><?php echo $rs_percentage; ?>%</p>
                 </div>
-
-                <?php if (!empty($rs_remarks)): ?>
-                <div class="bg-white rounded-lg p-3 max-w-sm mx-auto mb-4 border border-gray-200">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Remarks</p>
-                    <p class="text-sm text-gray-700"><?php echo htmlspecialchars($rs_remarks); ?></p>
-                </div>
-                <?php endif; ?>
-
-                <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 max-w-md mx-auto mt-4">
-                    <p class="text-sm text-blue-700 leading-relaxed">Thank you for participating. For any queries, please contact the school administration office.</p>
-                </div>
-            </div>
-
-            <?php elseif ($rs_status === 'Waitlisted'): ?>
-            <!-- WAITLISTED -->
-            <div class="bg-amber-50/50 border border-amber-200 rounded-2xl p-8 text-center mb-8">
-                <div class="text-4xl mb-4">⏳</div>
-                <h2 class="text-xl font-bold text-amber-800 mb-2">You Are Waitlisted</h2>
-                <p class="text-amber-600 font-medium mb-6">Your result is under review</p>
-                
-                <div class="bg-white rounded-2xl p-6 max-w-sm mx-auto mb-6 shadow-sm border border-amber-200">
-                    <div class="inline-block bg-amber-500 text-white font-bold text-xs px-4 py-1.5 rounded-full uppercase tracking-wider mb-4">WAITLISTED</div>
-                    <div>
-                        <span class="text-5xl font-black text-amber-700"><?php echo htmlspecialchars($rs_marks); ?></span>
-                        <span class="text-xl text-gray-400 font-bold">/ <?php echo htmlspecialchars($rs_total); ?></span>
+            </a>
+            <?php elseif ($result['form_type'] === 'Admission' && empty($result['result_published_at'])): ?>
+            <a href="?tab=results" class="block mb-6 group">
+                <div class="rounded-xl border border-gray-200 bg-gray-50/50 p-4 flex items-center justify-between transition-all hover:shadow-sm hover:border-gray-300">
+                    <div class="flex items-center gap-4">
+                        <div class="text-2xl opacity-50">📊</div>
+                        <div>
+                            <div class="font-bold text-gray-600 text-sm">Entrance Exam Results</div>
+                            <div class="text-xs text-gray-400 font-medium mt-0.5">Not yet published — check back later</div>
+                        </div>
                     </div>
-                    <p class="text-lg font-bold text-amber-600 mt-2"><?php echo $rs_percentage; ?>%</p>
+                    <div class="text-xs font-bold text-gray-400 group-hover:text-gray-600 transition-colors flex items-center gap-1">
+                        View
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </div>
                 </div>
-
-                <?php if (!empty($rs_remarks)): ?>
-                <div class="bg-white rounded-lg p-3 max-w-sm mx-auto mb-4 border border-amber-100">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Remarks</p>
-                    <p class="text-sm text-gray-700"><?php echo htmlspecialchars($rs_remarks); ?></p>
-                </div>
-                <?php endif; ?>
-
-                <div class="bg-amber-100 border border-amber-200 rounded-xl p-5 max-w-md mx-auto mt-4">
-                    <p class="text-sm text-amber-800 leading-relaxed">You have been placed on our waiting list. If a seat becomes available, the school will contact you directly. Please keep your contact details up to date.</p>
-                </div>
-            </div>
-            <?php endif; ?>
+            </a>
             <?php endif; ?>
 
             <h2 class="text-xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-100">Application Overview</h2>
@@ -389,6 +476,32 @@ $pay_badge = $paymentClasses[$pay_status] ?? 'bg-yellow-100 text-yellow-800 bord
                         <div class="flex justify-between"><span class="text-gray-500">Date</span><span class="font-semibold text-gray-900"><?php echo htmlspecialchars($result['exam_date']); ?></span></div>
                         <div class="flex justify-between"><span class="text-gray-500">Time</span><span class="font-semibold text-gray-900"><?php echo htmlspecialchars($result['exam_time']); ?></span></div>
                         <div class="flex justify-between"><span class="text-gray-500">Venue</span><span class="font-semibold text-gray-900"><?php echo htmlspecialchars($result['venue']); ?></span></div>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (in_array($result['interview_status'] ?? '', ['Scheduled', 'Selected', 'Waitlisted', 'Rejected'])): ?>
+                <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 md:col-span-2 lg:col-span-1">
+                    <h3 class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Interview Schedule & Details</h3>
+                    <div class="space-y-3 text-sm flex flex-col h-[calc(100%-2rem)]">
+                        <div class="flex justify-between items-center"><span class="text-gray-500">Status</span>
+                            <span class="px-2 py-0.5 rounded text-xs font-bold <?php 
+                                echo $result['interview_status'] === 'Selected' ? 'bg-emerald-100 text-emerald-700' : 
+                                    ($result['interview_status'] === 'Rejected' ? 'bg-red-100 text-red-700' : 
+                                    ($result['interview_status'] === 'Waitlisted' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700')); 
+                            ?>"><?php echo htmlspecialchars($result['interview_status']); ?></span>
+                        </div>
+                        <?php if (!empty($result['interview_date'])): ?>
+                        <div class="flex justify-between"><span class="text-gray-500">Date</span><span class="font-semibold text-gray-900"><?php echo date('F j, Y', strtotime($result['interview_date'])); ?></span></div>
+                        <div class="flex justify-between"><span class="text-gray-500">Time</span><span class="font-semibold text-gray-900"><?php echo date('h:i A', strtotime($result['interview_time'])); ?></span></div>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($result['interview_remarks'])): ?>
+                        <div class="mt-auto border-t border-indigo-100 pt-3">
+                            <span class="block text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">Remarks / Internal Note</span>
+                            <span class="text-gray-700 text-xs italic block bg-white/60 p-2 rounded border border-indigo-50"><?php echo htmlspecialchars($result['interview_remarks']); ?></span>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -481,6 +594,8 @@ $pay_badge = $paymentClasses[$pay_status] ?? 'bg-yellow-100 text-yellow-800 bord
                         <a href="admit_card.php?roll=<?php echo urlencode($result['entrance_roll_no']); ?>&dob=<?php echo urlencode($result['dob_bs']); ?>" target="_blank" class="block w-full text-center py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors shadow-sm text-sm">Download Admit Card</a>
                     <?php elseif (($result['status'] === 'Approved' || $result['status'] === 'Admitted') && !$has_admit_right): ?>
                         <p class="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded block mt-2">Your application is approved! Please complete your fee payment at the school office. Your admit card will be available after payment confirmation.</p>
+                    <?php elseif (($result['status'] === 'Approved' || $result['status'] === 'Admitted') && $has_admit_right && empty($result['exam_date'])): ?>
+                        <p class="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 p-3 rounded block mt-2">Your payment is confirmed, but your entrance exam date has not been scheduled yet. Check back here soon.</p>
                     <?php else: ?>
                         <p class="text-xs font-semibold text-yellow-700 bg-yellow-50 border border-yellow-200 p-2 rounded block mt-2">Not available yet. Awaiting admin approval and exam scheduling.</p>
                     <?php endif; ?>
@@ -646,6 +761,138 @@ $pay_badge = $paymentClasses[$pay_status] ?? 'bg-yellow-100 text-yellow-800 bord
                 </form>
             <?php endif; ?>
 
+        <!-- EXAM RESULTS TAB -->
+        <?php elseif ($tab === 'results'): ?>
+            <?php if ($result['form_type'] === 'Admission' && !empty($result['result_published_at'])): 
+                $rs_status = $result['result_status'] ?? 'Pending';
+                $rs_marks = $result['marks_obtained'] ?? null;
+                $rs_total = (float)($result['total_marks'] ?? 100);
+                $rs_percentage = ($rs_total > 0 && $rs_marks !== null) ? round(((float)$rs_marks / $rs_total) * 100, 1) : 0;
+                $rs_remarks = $result['result_remarks'] ?? '';
+            ?>
+            <h2 class="text-xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-100 flex justify-between items-center">
+                <span>Entrance Examination Result</span>
+                <a href="print_result.php?id=<?php echo $result['id']; ?>" target="_blank" class="text-xs font-bold bg-violet-100 hover:bg-violet-200 text-violet-700 px-4 py-2 rounded-lg transition inline-flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    Print Result Card
+                </a>
+            </h2>
+
+            <?php if ($rs_status === 'Pass'): ?>
+            <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-8 text-center relative overflow-hidden mb-8">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500"></div>
+                <div class="text-5xl mb-4">🎉</div>
+                <h2 class="text-2xl font-black text-emerald-800 mb-2">Congratulations!</h2>
+                <p class="text-emerald-600 font-medium mb-6">You have passed the entrance examination</p>
+                <div class="bg-white/80 rounded-2xl p-6 max-w-sm mx-auto mb-6 shadow-sm border border-emerald-100">
+                    <div class="inline-block bg-emerald-600 text-white font-bold text-xs px-4 py-1.5 rounded-full uppercase tracking-wider mb-4">PASSED</div>
+                    <div>
+                        <span class="text-5xl font-black text-emerald-700"><?php echo htmlspecialchars($rs_marks); ?></span>
+                        <span class="text-xl text-gray-400 font-bold">/ <?php echo htmlspecialchars($rs_total); ?></span>
+                    </div>
+                    <p class="text-lg font-bold text-emerald-600 mt-2"><?php echo $rs_percentage; ?>%</p>
+                </div>
+                <?php if (!empty($rs_remarks)): ?>
+                <div class="bg-white/60 rounded-lg p-3 max-w-sm mx-auto mb-4 border border-emerald-100">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Remarks</p>
+                    <p class="text-sm text-gray-700"><?php echo htmlspecialchars($rs_remarks); ?></p>
+                </div>
+                <?php endif; ?>
+                <div class="bg-emerald-100 border border-emerald-200 rounded-xl p-5 max-w-md mx-auto mt-4">
+                    <h3 class="font-bold text-emerald-800 text-sm mb-2">✅ Next Step: Complete Enrollment</h3>
+                    <p class="text-sm text-emerald-700 leading-relaxed">Please visit the school administration office with your original documents to complete the enrollment process.</p>
+                </div>
+            </div>
+
+            <?php elseif ($rs_status === 'Fail'): ?>
+            <div class="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center mb-8">
+                <div class="text-4xl mb-4">📋</div>
+                <h2 class="text-xl font-bold text-gray-700 mb-2">Entrance Exam Result</h2>
+                <div class="bg-white rounded-2xl p-6 max-w-sm mx-auto mb-6 shadow-sm border border-gray-200 mt-4">
+                    <div class="inline-block bg-red-500 text-white font-bold text-xs px-4 py-1.5 rounded-full uppercase tracking-wider mb-4">NOT SELECTED</div>
+                    <div>
+                        <span class="text-5xl font-black text-red-600"><?php echo htmlspecialchars($rs_marks); ?></span>
+                        <span class="text-xl text-gray-400 font-bold">/ <?php echo htmlspecialchars($rs_total); ?></span>
+                    </div>
+                    <p class="text-lg font-bold text-red-500 mt-2"><?php echo $rs_percentage; ?>%</p>
+                </div>
+                <?php if (!empty($rs_remarks)): ?>
+                <div class="bg-white rounded-lg p-3 max-w-sm mx-auto mb-4 border border-gray-200">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Remarks</p>
+                    <p class="text-sm text-gray-700"><?php echo htmlspecialchars($rs_remarks); ?></p>
+                </div>
+                <?php endif; ?>
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 max-w-md mx-auto mt-4">
+                    <p class="text-sm text-blue-700 leading-relaxed">Thank you for participating. For any queries, please contact the school administration office.</p>
+                </div>
+            </div>
+
+            <?php elseif ($rs_status === 'Waitlisted'): ?>
+            <div class="bg-amber-50/50 border border-amber-200 rounded-2xl p-8 text-center mb-8">
+                <div class="text-4xl mb-4">⏳</div>
+                <h2 class="text-xl font-bold text-amber-800 mb-2">You Are Waitlisted</h2>
+                <p class="text-amber-600 font-medium mb-6">Your result is under review</p>
+                <div class="bg-white rounded-2xl p-6 max-w-sm mx-auto mb-6 shadow-sm border border-amber-200">
+                    <div class="inline-block bg-amber-500 text-white font-bold text-xs px-4 py-1.5 rounded-full uppercase tracking-wider mb-4">WAITLISTED</div>
+                    <div>
+                        <span class="text-5xl font-black text-amber-700"><?php echo htmlspecialchars($rs_marks); ?></span>
+                        <span class="text-xl text-gray-400 font-bold">/ <?php echo htmlspecialchars($rs_total); ?></span>
+                    </div>
+                    <p class="text-lg font-bold text-amber-600 mt-2"><?php echo $rs_percentage; ?>%</p>
+                </div>
+                <?php if (!empty($rs_remarks)): ?>
+                <div class="bg-white rounded-lg p-3 max-w-sm mx-auto mb-4 border border-amber-100">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Remarks</p>
+                    <p class="text-sm text-gray-700"><?php echo htmlspecialchars($rs_remarks); ?></p>
+                </div>
+                <?php endif; ?>
+                <div class="bg-amber-100 border border-amber-200 rounded-xl p-5 max-w-md mx-auto mt-4">
+                    <p class="text-sm text-amber-800 leading-relaxed">You have been placed on our waiting list. If a seat becomes available, the school will contact you directly. Please keep your contact details up to date.</p>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Result Details Card -->
+            <div class="bg-gray-50 rounded-xl border border-gray-100 p-5 mt-2">
+                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Result Details</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-500">Applicant</span><span class="font-semibold text-gray-900"><?php echo htmlspecialchars($result['student_first_name'] . ' ' . $result['student_last_name']); ?></span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Roll Number</span><span class="font-semibold text-gray-900"><?php echo htmlspecialchars($result['entrance_roll_no'] ?: 'N/A'); ?></span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Applied Class</span><span class="font-semibold text-gray-900"><?php echo htmlspecialchars($result['applied_class']); ?><?php echo !empty($result['faculty_name']) ? ' — ' . htmlspecialchars($result['faculty_name']) : ''; ?></span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Marks Obtained</span><span class="font-bold text-gray-900"><?php echo htmlspecialchars($rs_marks); ?> / <?php echo htmlspecialchars($rs_total); ?></span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Percentage</span><span class="font-bold text-gray-900"><?php echo $rs_percentage; ?>%</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Result Status</span><span class="font-bold <?php echo $rs_status === 'Pass' ? 'text-emerald-600' : ($rs_status === 'Fail' ? 'text-red-600' : 'text-amber-600'); ?>"><?php echo $rs_status === 'Pass' ? 'PASSED' : ($rs_status === 'Fail' ? 'NOT SELECTED' : strtoupper($rs_status)); ?></span></div>
+                    <?php if (!empty($rs_remarks)): ?>
+                    <div class="flex justify-between"><span class="text-gray-500">Remarks</span><span class="font-medium text-gray-700"><?php echo htmlspecialchars($rs_remarks); ?></span></div>
+                    <?php endif; ?>
+                    <div class="flex justify-between"><span class="text-gray-500">Published On</span><span class="font-medium text-gray-600"><?php echo date('M d, Y \a\t h:i A', strtotime($result['result_published_at'])); ?></span></div>
+                </div>
+            </div>
+
+            <?php else: ?>
+            <!-- Results not yet published -->
+            <h2 class="text-xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-100">Entrance Examination Result</h2>
+            <div class="max-w-lg mx-auto text-center py-12">
+                <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-700 mb-2">Results Not Yet Published</h3>
+                <p class="text-sm text-gray-500 leading-relaxed mb-6">Entrance examination results have not been published yet. Once the school publishes the results, your marks and status will appear here automatically.</p>
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 text-left">
+                    <h4 class="text-sm font-bold text-blue-800 mb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        What to expect
+                    </h4>
+                    <ul class="text-sm text-blue-700 space-y-1.5">
+                        <li class="flex items-start gap-2"><span class="text-blue-400 mt-0.5">•</span> Your marks and percentage will be displayed</li>
+                        <li class="flex items-start gap-2"><span class="text-blue-400 mt-0.5">•</span> Result status: Pass, Not Selected, or Waitlisted</li>
+                        <li class="flex items-start gap-2"><span class="text-blue-400 mt-0.5">•</span> You can download/print your result card</li>
+                        <li class="flex items-start gap-2"><span class="text-blue-400 mt-0.5">•</span> An email notification will be sent when results are ready</li>
+                    </ul>
+                </div>
+            </div>
+            <?php endif; ?>
+
         <?php elseif ($tab === 'delete'): ?>
             <h2 class="text-xl font-bold text-red-700 mb-6 pb-2 border-b border-red-100">Delete Application</h2>
             
@@ -718,6 +965,7 @@ $pay_badge = $paymentClasses[$pay_status] ?? 'bg-yellow-100 text-yellow-800 bord
 
         <?php endif; ?>
 
+    </div>
     </div>
 </div>
 

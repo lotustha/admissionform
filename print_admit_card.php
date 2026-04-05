@@ -42,6 +42,27 @@ if (!$student) {
 
 // Prepare Photo
 $photo_src = !empty($student['pp_photo_path']) ? $student['pp_photo_path'] : '';
+
+// Generate QR Code Payload using Composer Library
+$qr_payload = json_encode([
+    'action' => 'scan_attendance',
+    'id' => $student['id'],
+    'roll' => $student['entrance_roll_no']
+]);
+
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
+
+$options = new QROptions([
+    'version'         => 5,
+    'outputInterface' => \chillerlan\QRCode\Output\QRMarkupSVG::class,
+    'outputBase64'    => true,
+    'eccLevel'        => \chillerlan\QRCode\Common\EccLevel::L,
+    'addQuietzone'    => false,
+]);
+
+$qrCode = new QRCode($options);
+$qr_url = $qrCode->render($qr_payload);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -65,33 +86,33 @@ $photo_src = !empty($student['pp_photo_path']) ? $student['pp_photo_path'] : '';
         .title span { border-bottom: 2px dashed #059669; padding-bottom: 5px; }
         .card-body { padding: 10px 40px; display: flex; gap: 30px; }
         .photo-area { width: 130px; display: flex; flex-direction: column; align-items: center;}
-        .photo { width: 120px; height: 120px; border: 2px solid #cbd5e1; border-radius: 4px; object-fit: cover; background: #f8fafc; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 10px;text-align: center;}
-        .signature-box { width: 120px; height: 60px; border: 1px solid #cbd5e1; margin-top: 15px; font-size: 10px; color: #94a3b8; display: flex; align-items: end; justify-content: center; padding-bottom: 8px; box-sizing: border-box;}
+        .photo { width: 110px; height: 110px; border: 2px solid #cbd5e1; border-radius: 4px; object-fit: cover; background: #f8fafc; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 10px;text-align: center;}
+        .signature-box { width: 110px; height: 45px; border: 1px solid #cbd5e1; margin-top: 10px; font-size: 10px; color: #94a3b8; display: flex; align-items: end; justify-content: center; padding-bottom: 5px; box-sizing: border-box;}
         .info-area { flex-grow: 1; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 20px; }
-        .info-group { margin-bottom: 5px; }
-        .info-label { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold; margin-bottom: 3px; }
-        .info-value { font-size: 16px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;}
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+        .info-group { margin-bottom: 0px; }
+        .info-label { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: bold; margin-bottom: 2px; }
+        .info-value { font-size: 14px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;}
         
-        .exam-details { margin: 25px 40px; background: #f0fdf4; border: 1px solid #10b981; border-radius: 6px; padding: 15px 20px; display: flex; justify-content: space-between; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .exam-details { margin: 15px 40px; background: #f0fdf4; border: 1px solid #10b981; border-radius: 6px; padding: 12px 20px; display: flex; justify-content: space-between; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .exam-item { text-align: center; flex: 1;}
-        .exam-label { font-size: 11px; color: #065f46; font-weight: bold; text-transform: uppercase; }
-        .exam-val { font-size: 15px; font-weight: bold; color: #022c22; margin-top: 5px; }
+        .exam-label { font-size: 10px; color: #065f46; font-weight: bold; text-transform: uppercase; }
+        .exam-val { font-size: 14px; font-weight: bold; color: #022c22; margin-top: 4px; }
         
-        .rules { margin: 0 40px 30px 40px; padding-top: 20px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #475569; }
-        .rules h4 { margin: 0 0 10px 0; color: #334155; font-size: 14px;}
+        .rules { margin: 0 40px 15px 40px; padding-top: 15px; border-top: 1px dashed #cbd5e1; font-size: 11px; color: #475569; }
+        .rules h4 { margin: 0 0 8px 0; color: #334155; font-size: 13px;}
         .rules ul { margin: 0; padding-left: 20px; }
-        .rules li { margin-bottom: 6px; }
+        .rules li { margin-bottom: 4px; }
         
-        .footer { display: flex; justify-content: space-between; margin: 0 40px 30px 40px; }
-        .sig-line { width: 220px; border-top: 1px solid #0f172a; text-align: center; padding-top: 8px; font-size: 13px; font-weight: bold; color: #0f172a; margin-top: 40px; }
+        .footer { display: flex; justify-content: space-between; margin: 0 40px 20px 40px; }
+        .sig-line { width: 220px; border-top: 1px solid #0f172a; text-align: center; padding-top: 5px; font-size: 12px; font-weight: bold; color: #0f172a; margin-top: 25px; }
         
         .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 90px; color: rgba(5, 150, 105, 0.05); font-weight: 900; white-space: nowrap; z-index: 0; pointer-events: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         
         .card-content { position: relative; z-index: 1; }
         
         @media print {
-            body { background: white; padding: 20mm; }
+            body { background: white; padding: 10mm; }
             .admit-card { border: 2px solid #000; box-shadow: none; border-radius: 0; width: 100%; max-width: 100%; margin: 0; }
             .card-header { background: #e5e5e5 !important; color: #000 !important; border-bottom: 2px solid #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .exam-details { background: #f9f9f9 !important; border: 1px solid #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -130,6 +151,12 @@ $photo_src = !empty($student['pp_photo_path']) ? $student['pp_photo_path'] : '';
                         <div class="photo">No Photo</div>
                     <?php endif; ?>
                     <div class="signature-box">Applicant's Signature</div>
+                    
+                    <!-- QR Code -->
+                    <div style="margin-top: 10px; width: 110px; box-sizing: border-box; text-align: center; border: 1px solid #cbd5e1; padding: 5px; border-radius: 4px; background: white;">
+                        <img src="<?php echo htmlspecialchars($qr_url); ?>" alt="QR Code" style="width: 100%; height: auto; display: block;" crossorigin="anonymous">
+                        <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block; margin-top: 2px;">Scan at Gate</span>
+                    </div>
                 </div>
                 
                 <div class="info-area">

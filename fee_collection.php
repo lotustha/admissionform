@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_paid'])) {
     $method  = trim($_POST['payment_method'] ?? 'Cash');
 
     if ($pay_id > 0 && $amount > 0) {
-        $pdo->prepare("UPDATE admission_inquiries SET payment_status='Paid', payment_amount=?, payment_reference=?, payment_method=?, payment_date=NOW() WHERE id=?")
+        $pdo->prepare("UPDATE admission_inquiries SET payment_status='Paid', payment_amount=?, payment_reference=?, payment_method=?, payment_date=NOW(), status=IF(status='Pending', 'Approved', status) WHERE id=?")
             ->execute([$amount, $ref, $method, $pay_id]);
         
         // Send Admit Card + Receipt email to student & institute
@@ -58,6 +58,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_record'])) {
 $search = trim($_GET['q'] ?? '');
 $filter = $_GET['filter'] ?? 'unpaid'; // 'unpaid' | 'paid' | 'all'
 
+// Pagination
+$per_page = 20;
+$page = max(1, (int)($_GET['page'] ?? 1));
+$offset = ($page - 1) * $per_page;
+
 $where_clauses = ["form_type = 'Admission'"];
 $params = [];
 
@@ -75,8 +80,17 @@ if (!empty($search)) {
 
 $where_sql = implode(' AND ', $where_clauses);
 
+// Count total for pagination
 try {
-    $stmt = $pdo->prepare("SELECT * FROM admission_inquiries WHERE $where_sql ORDER BY submission_date DESC LIMIT 60");
+    $count_stmt = $pdo->prepare("SELECT COUNT(*) FROM admission_inquiries WHERE $where_sql");
+    $count_stmt->execute($params);
+    $total_results = (int)$count_stmt->fetchColumn();
+} catch (Exception $e) { $total_results = 0; }
+$total_pages = max(1, (int)ceil($total_results / $per_page));
+
+try {
+    $count_params = $params;
+    $stmt = $pdo->prepare("SELECT * FROM admission_inquiries WHERE $where_sql ORDER BY submission_date DESC LIMIT $per_page OFFSET $offset");
     $stmt->execute($params);
     $students = $stmt->fetchAll();
 } catch (Exception $e) { $students = []; }
@@ -204,7 +218,7 @@ $app_fee = (float)($settings['application_fee'] ?? 500);
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <h2 class="font-bold text-gray-900">Applicants</h2>
-                    <span class="text-xs text-gray-400"><?php echo count($students); ?> result(s)</span>
+                    <span class="text-xs text-gray-400"><?php echo $total_results; ?> result(s)</span>
                 </div>
                 <?php if (empty($students)): ?>
                 <div class="p-10 text-center text-gray-400 text-sm">No applicants found matching your search.</div>
@@ -288,6 +302,33 @@ $app_fee = (float)($settings['application_fee'] ?? 500);
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                </div>
+                <?php endif; ?>
+
+                <?php if ($total_pages > 1): ?>
+                <!-- Pagination -->
+                <div class="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
+                    <div class="text-xs text-gray-500">
+                        Showing <?php echo min($offset + 1, $total_results); ?>–<?php echo min($offset + $per_page, $total_results); ?> of <?php echo $total_results; ?>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <?php
+                        $base_url = '?filter=' . urlencode($filter) . '&q=' . urlencode($search) . '&page=';
+                        // Prev
+                        if ($page > 1): ?>
+                        <a href="<?php echo $base_url . ($page - 1); ?>" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">&laquo; Prev</a>
+                        <?php endif;
+                        // Page numbers
+                        $start_p = max(1, $page - 2);
+                        $end_p = min($total_pages, $page + 2);
+                        for ($p = $start_p; $p <= $end_p; $p++): ?>
+                        <a href="<?php echo $base_url . $p; ?>" class="px-3 py-1.5 rounded-lg text-xs font-bold transition <?php echo $p === $page ? 'bg-teal-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>"><?php echo $p; ?></a>
+                        <?php endfor;
+                        // Next
+                        if ($page < $total_pages): ?>
+                        <a href="<?php echo $base_url . ($page + 1); ?>" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Next &raquo;</a>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <?php endif; ?>
             </div>

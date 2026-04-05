@@ -6,10 +6,10 @@
  * It checks the current DB schema version and applies any missing
  * structural changes (new columns, tables) safely using IF NOT EXISTS.
  *
- * CURRENT VERSION: 1.6
+ * CURRENT VERSION: 1.9
  */
 
-define('APP_VERSION', '1.6');
+define('APP_VERSION', '1.9');
 
 function run_migrations(PDO $pdo): void
 {
@@ -185,6 +185,46 @@ function run_migrations(PDO $pdo): void
 
         _set_schema_version($pdo, 1.6);
         $current = 1.6;
+    }
+
+    // ── Version 1.7 – Attendance & Interviews ────────────────────────────────
+    if ($current < 1.7) {
+        $patches = [
+            "ALTER TABLE admission_inquiries ADD COLUMN IF NOT EXISTS attendance_status ENUM('Pending', 'Present', 'Absent') DEFAULT 'Pending'",
+            "ALTER TABLE admission_inquiries ADD COLUMN IF NOT EXISTS interview_status ENUM('Pending', 'Scheduled', 'Selected', 'Rejected', 'Waitlisted') DEFAULT 'Pending'",
+            "ALTER TABLE admission_inquiries ADD COLUMN IF NOT EXISTS interview_date DATE NULL",
+            "ALTER TABLE admission_inquiries ADD COLUMN IF NOT EXISTS interview_time VARCHAR(50) NULL",
+            "ALTER TABLE admission_inquiries ADD COLUMN IF NOT EXISTS interview_remarks TEXT NULL"
+        ];
+        foreach ($patches as $sql) {
+            try { $pdo->exec($sql); } catch (PDOException $e) { /* skip */ }
+        }
+
+        _set_schema_version($pdo, 1.7);
+        $current = 1.7;
+    }
+
+    // ── Version 1.8 – UI Enhancements ────────────────────────────────────────
+    if ($current < 1.8) {
+        _set_schema_version($pdo, 1.8);
+        $current = 1.8;
+    }
+
+    // ── Version 1.9 – Mobile Scanner Companion ────────────────────────────────
+    if ($current < 1.9) {
+        $patches = [
+            "CREATE TABLE IF NOT EXISTS remote_scanner_sessions (
+                session_token VARCHAR(50) PRIMARY KEY,
+                last_payload TEXT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )"
+        ];
+        foreach ($patches as $sql) {
+            try { $pdo->exec($sql); } catch (PDOException $e) { /* skip */ }
+        }
+
+        _set_schema_version($pdo, 1.9);
+        $current = 1.9;
     }
 }
 

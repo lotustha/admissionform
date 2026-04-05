@@ -48,6 +48,27 @@ if (!$student['exam_date']) {
 }
 
 $photo_src = !empty($student['pp_photo_path']) ? $student['pp_photo_path'] : '';
+
+// Generate QR Code Payload using Composer Library
+$qr_payload = json_encode([
+    'action' => 'scan_attendance',
+    'id' => $student['id'],
+    'roll' => $student['entrance_roll_no']
+]);
+
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
+
+$options = new QROptions([
+    'version'         => 5,
+    'outputInterface' => \chillerlan\QRCode\Output\QRMarkupSVG::class,
+    'outputBase64'    => true,
+    'eccLevel'        => \chillerlan\QRCode\Common\EccLevel::L,
+    'addQuietzone'    => false,
+]);
+
+$qrCode = new QRCode($options);
+$qr_url = $qrCode->render($qr_payload);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -136,9 +157,15 @@ $photo_src = !empty($student['pp_photo_path']) ? $student['pp_photo_path'] : '';
                             <span class="text-xs text-gray-400 font-medium">Passport Size<br>Photo</span>
                         <?php endif; ?>
                     </div>
-                    <div class="w-28 h-12 border border-gray-300 rounded flex items-end justify-center pb-1 relative bg-white">
+                    <div class="w-28 h-12 border border-gray-300 rounded flex items-end justify-center pb-1 relative bg-white mt-1">
                         <span class="absolute inset-0 flex-col items-center justify-center flex text-gray-100 opacity-20 pointer-events-none overflow-hidden"><svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg></span>
-                        <span class="text-[9px] text-gray-400 uppercase font-bold uppercase relative z-10">Candidate Signature</span>
+                        <span class="text-[9px] text-gray-400 font-bold uppercase relative z-10">Candidate Signature</span>
+                    </div>
+                    
+                    <!-- QR Code -->
+                    <div class="w-28 mt-2 p-1 bg-white border border-gray-200 rounded-lg flex flex-col items-center shadow-sm">
+                        <img src="<?php echo htmlspecialchars($qr_url); ?>" alt="QR Code" class="w-full h-auto" crossorigin="anonymous">
+                        <span class="text-[8px] font-bold text-gray-500 uppercase mt-1 tracking-wider">Scan at Gate</span>
                     </div>
                 </div>
 

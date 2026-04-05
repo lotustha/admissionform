@@ -9,6 +9,12 @@ if (!isset($_SESSION['admin_id'])) {
     exit;
 }
 
+$admin_role = $_SESSION['admin_role'] ?? 'Super Admin';
+if (!in_array($admin_role, ['Super Admin', 'Academic Staff'])) {
+    header("Location: dashboard.php");
+    exit;
+}
+
 $settings     = getSchoolSettings($pdo);
 $school_name  = $settings['school_name'] ?? 'School Admission Portal';
 

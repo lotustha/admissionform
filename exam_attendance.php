@@ -8,12 +8,38 @@ if (!isset($_SESSION['admin_id'])) {
     exit;
 }
 
+$admin_role = $_SESSION['admin_role'] ?? 'Super Admin';
+if (!in_array($admin_role, ['Super Admin', 'Academic Staff'])) {
+    header("Location: dashboard.php");
+    exit;
+}
+
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     header("Location: manage_entrance.php");
     exit;
 }
 
 $schedule_id = (int)$_GET['id'];
+
+// AJAX Handler for QR Scanning & Quick Attendance
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'scan_attendance') {
+    $roll = $_POST['roll'] ?? '';
+    $status = $_POST['attendance_status'] ?? 'Present'; // 'Present' or 'Absent' or 'Pending'
+    
+    // Safety check verify roll belongs to this schedule
+    $stmt = $pdo->prepare("SELECT id FROM admission_inquiries WHERE entrance_roll_no = ? AND schedule_id = ?");
+    $stmt->execute([$roll, $schedule_id]);
+    $inq = $stmt->fetch();
+    
+    if ($inq) {
+        $pdo->prepare("UPDATE admission_inquiries SET attendance_status = ? WHERE id = ?")
+            ->execute([$status, $inq['id']]);
+        echo json_encode(['success' => true, 'status' => $status, 'message' => "Marked $status for Roll $roll"]);
+    } else {
+        echo json_encode(['success' => false, 'message' => "Roll $roll not found in this schedule."]);
+    }
+    exit;
+}
 
 // Get Schedule Details
 $sched_stmt = $pdo->prepare("SELECT e.*, f.faculty_name FROM entrance_schedules e LEFT JOIN faculties f ON e.faculty_id = f.id WHERE e.id = ?");
@@ -148,10 +174,19 @@ function build_url($updates) {
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         Print Sheet
                     </a>
-                    <a href="<?php echo build_url(['export'=>'csv']); ?>" class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded text-sm font-medium shadow-sm transition-colors flex items-center h-[38px]">
+                    <a href="<?php echo build_url(['export'=>'csv']); ?>" class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded text-sm font-medium shadow-sm transition-colors flex items-center h-[38px] mr-2">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Export CSV
                     </a>
+                    <div class="flex rounded shadow-sm h-[38px]">
+                        <button type="button" onclick="openScanner()" class="bg-emerald-600 border border-emerald-700 text-white hover:bg-emerald-700 px-4 py-2 rounded-l text-sm font-bold transition-colors flex items-center shadow-md">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Scan QR (PC)
+                        </button>
+                        <button type="button" onclick="linkCompanion()" class="bg-emerald-700 border border-emerald-800 text-white hover:bg-emerald-800 px-3 py-2 rounded-r text-sm font-bold transition-colors flex items-center border-l-0 shadow-md tooltip" title="Use Phone as Scanner">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -171,7 +206,7 @@ function build_url($updates) {
                                 'i.student_first_name' => 'Student Name',
                                 '_gender' => 'Gender / DOB',
                                 '_contact' => 'Contact',
-                                'i.status' => 'Status'
+                                'i.attendance_status' => 'Attendance'
                             ];
                             foreach($headers as $col => $label): 
                                 if($col === '_gender' || $col === '_contact'):
@@ -189,6 +224,7 @@ function build_url($updates) {
                                 endif;
                             endforeach; 
                             ?>
+                            <th class="px-6 py-3 text-right font-medium text-gray-500 uppercase tracking-wider text-xs">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -210,16 +246,23 @@ function build_url($updates) {
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <?php
-                                $status = $st['status'];
+                                $status = $st['attendance_status'] ?? 'Pending';
                                 $badgeClass = "bg-gray-100 text-gray-800";
                                 if($status === 'Pending') $badgeClass = "bg-yellow-100 text-yellow-800";
-                                if($status === 'Approved') $badgeClass = "bg-blue-100 text-blue-800";
-                                if($status === 'Rejected') $badgeClass = "bg-red-100 text-red-800";
-                                if($status === 'Admitted') $badgeClass = "bg-emerald-100 text-emerald-800";
+                                if($status === 'Present') $badgeClass = "bg-emerald-100 text-emerald-800";
+                                if($status === 'Absent') $badgeClass = "bg-red-100 text-red-800";
                                 ?>
-                                <span class="px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full <?php echo $badgeClass; ?>">
+                                <span id="badge-<?php echo $st['id']; ?>" class="px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full <?php echo $badgeClass; ?>">
                                     <?php echo htmlspecialchars($status); ?>
                                 </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button onclick="event.stopPropagation(); markAttendance('<?php echo htmlspecialchars($st['entrance_roll_no']); ?>', 'Present')" class="text-emerald-600 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-md transition-colors mr-2 border border-emerald-200">
+                                    Present
+                                </button>
+                                <button onclick="event.stopPropagation(); markAttendance('<?php echo htmlspecialchars($st['entrance_roll_no']); ?>', 'Absent')" class="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors border border-red-200">
+                                    Absent
+                                </button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -291,6 +334,42 @@ function build_url($updates) {
         </div>
     </div>
 
+    <!-- QR Scanner Modal -->
+    <div id="scanner-modal" class="fixed inset-0 z-50 hidden bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="scanner-box">
+            <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-emerald-800">Scan Admit Card QR</h3>
+                <button onclick="closeScanner()" class="text-gray-400 hover:text-red-500 bg-gray-200 p-2 rounded-full transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-4 bg-black relative">
+                <div id="reader-error" class="hidden absolute inset-0 z-10 bg-black/90 flex flex-col items-center justify-center text-white p-4 text-center">
+                    <svg class="w-10 h-10 text-red-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <p class="font-bold mb-1">Camera Access Blocked</p>
+                    <p class="text-xs text-gray-400 mb-4">Live streaming requires an HTTPS connection. You can upload an image of the QR Code instead.</p>
+                    <label class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold cursor-pointer transition text-sm">
+                        Upload QR Image
+                        <input type="file" id="qr-upload" accept="image/*" class="hidden" onchange="scanLocalImage(event)">
+                    </label>
+                </div>
+                <div id="reader" class="w-full min-h-[300px]"></div>
+                <div id="scan-result" class="absolute inset-x-4 bottom-4 bg-emerald-600/90 text-white p-3 rounded-lg text-center font-bold shadow-lg transform translate-y-20 transition-transform opacity-0">
+                    Scanning...
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 flex items-center justify-between">
+                <div class="text-xs text-gray-500">
+                    Point camera at admit card OR
+                </div>
+                <label class="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-medium rounded border border-indigo-200 hover:bg-indigo-100 transition shadow-sm text-xs cursor-pointer">
+                    Upload Image
+                    <input type="file" id="qr-upload-alt" accept="image/*" class="hidden" onchange="scanLocalImage(event)">
+                </label>
+            </div>
+        </div>
+    </div>
+
     <script>
         const modal = document.getElementById('student-modal');
         const modalBox = document.getElementById('modal-box');
@@ -355,6 +434,161 @@ function build_url($updates) {
             setTimeout(() => {
                 modal.classList.add('hidden');
             }, 200);
+        }
+
+        // Attendance AJAX Marking
+        async function markAttendance(roll, status) {
+            try {
+                const formData = new FormData();
+                formData.append('action', 'scan_attendance');
+                formData.append('roll', roll);
+                formData.append('attendance_status', status);
+
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    // Flash success or reload page
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Connection error while marking attendance.');
+            }
+        }
+    </script>
+
+    <!-- HTML5 QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script>
+        const scannerModal = document.getElementById('scanner-modal');
+        const scannerBox = document.getElementById('scanner-box');
+        let html5QrcodeScanner = null;
+        let isProcessingScan = false;
+
+        function openScanner() {
+            document.getElementById('reader-error').classList.add('hidden');
+            scannerModal.classList.remove('hidden');
+            setTimeout(() => {
+                scannerBox.classList.remove('scale-95', 'opacity-0');
+                scannerBox.classList.add('scale-100', 'opacity-100');
+            }, 10);
+
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode("reader");
+            }
+
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+            .catch(err => {
+                document.getElementById('reader-error').classList.remove('hidden');
+                console.warn("Camera streaming not supported or permissions denied: " + err);
+            });
+        }
+
+        function closeScanner() {
+            if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                html5QrcodeScanner.stop().catch(err => console.error(err));
+            }
+            scannerBox.classList.remove('scale-100', 'opacity-100');
+            scannerBox.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                scannerModal.classList.add('hidden');
+            }, 200);
+        }
+
+        function scanLocalImage(event) {
+            const scanBanner = document.getElementById('scan-result');
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode("reader");
+            }
+            
+            scanBanner.textContent = "Processing image...";
+            scanBanner.className = 'absolute inset-x-4 bottom-4 bg-blue-600/90 text-white p-3 rounded-lg text-center font-bold shadow-lg transform translate-y-0 transition-transform opacity-100 z-50';
+
+            html5QrcodeScanner.scanFile(file, true)
+                .then(decodedText => {
+                    onScanSuccess(decodedText, null);
+                })
+                .catch(err => {
+                    scanBanner.textContent = "No valid QR code found in image.";
+                    scanBanner.className = 'absolute inset-x-4 bottom-4 bg-red-600/90 text-white p-3 rounded-lg text-center font-bold shadow-lg transform translate-y-0 transition-transform opacity-100 z-50';
+                    setTimeout(() => {
+                        scanBanner.classList.add('translate-y-20', 'opacity-0');
+                        scanBanner.classList.remove('translate-y-0', 'opacity-100');
+                    }, 3000);
+                });
+            
+            // reset file input
+            event.target.value = '';
+        }
+
+        async function onScanSuccess(decodedText, decodedResult) {
+            if (isProcessingScan) return;
+            isProcessingScan = true;
+            
+            const scanBanner = document.getElementById('scan-result');
+            
+            try {
+                // expecting JSON payload: {"action":"scan_attendance","id":1,"roll":"..."}
+                const payload = JSON.parse(decodedText);
+                if (payload.action === 'scan_attendance' && payload.roll) {
+                    
+                    scanBanner.textContent = `Marking ${payload.roll} Present...`;
+                    scanBanner.className = 'absolute inset-x-4 bottom-4 bg-emerald-600/90 text-white p-3 rounded-lg text-center font-bold shadow-lg transform translate-y-0 transition-transform opacity-100';
+
+                    const formData = new FormData();
+                    formData.append('action', 'scan_attendance');
+                    formData.append('roll', payload.roll);
+                    formData.append('attendance_status', 'Present');
+
+                    const response = await fetch(window.location.href, { method: 'POST', body: formData });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        scanBanner.textContent = result.message;
+                        html5QrcodeScanner.pause(true); // pause camera temporarily
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        throw new Error(result.message);
+                    }
+                } else {
+                    throw new Error("Invalid format");
+                }
+            } catch (err) {
+                console.error(err);
+                scanBanner.textContent = "Invalid QR code or error: " + err.message;
+                scanBanner.className = 'absolute inset-x-4 bottom-4 bg-red-600/90 text-white p-3 rounded-lg text-center font-bold shadow-lg transform translate-y-0 transition-transform opacity-100';
+                
+                setTimeout(() => {
+                    scanBanner.classList.add('translate-y-20', 'opacity-0');
+                    scanBanner.classList.remove('translate-y-0', 'opacity-100');
+                    isProcessingScan = false;
+                }, 2000);
+            }
+        }
+
+        function onScanFailure(error) {
+            // handle scan failure, usually better to ignore and keep scanning
+        }
+    </script>
+    <script src="js/companion_link.js"></script>
+    <script>
+        function linkCompanion() {
+            initCompanionScanner(function(decodedText) {
+                // Reroute it right into the existing logic!
+                onScanSuccess(decodedText, null);
+            });
         }
     </script>
 </body>

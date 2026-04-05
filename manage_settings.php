@@ -52,6 +52,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_org'])) {
     $upsert->execute(['contact_person', $contact_person]);
     $upsert->execute(['org_email',      $org_email]);
     $upsert->execute(['form_title',     $form_title]);
+    
+    $announcement_text = trim($_POST['announcement_text'] ?? '');
+    $upsert->execute(['announcement_text', $announcement_text]);
+
     if ($logo_path_update) {
         $upsert->execute(['logo_path', $logo_path_update]);
     }
@@ -235,6 +239,11 @@ $active_tab = $_GET['tab'] ?? 'org';
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1.5">Address</label>
                         <input type="text" name="org_address" value="<?php echo htmlspecialchars($org_address); ?>" placeholder="e.g. Kathmandu, Nepal" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Student Dashboard Announcement</label>
+                        <textarea name="announcement_text" placeholder="e.g. Entrance halls changed to Block B. Results will be published on April 10." class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition h-20"><?php echo htmlspecialchars($settings['announcement_text'] ?? ''); ?></textarea>
+                        <p class="text-xs text-gray-400 mt-1.5">This text will be displayed prominently on all student dashboards. Leave blank to disable.</p>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1.5">School Logo</label>

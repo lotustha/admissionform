@@ -54,14 +54,18 @@ function getAvailableSlots($pdo, $class_name, $faculty_id = null) {
  */
 function generateRollNumber($pdo) {
     $year = "2083";
-    // We can use a simple format like ADM-2083-0001
-    $stmt = $pdo->query("SELECT MAX(id) as max_id FROM admission_inquiries");
+    $prefix = "ADM-{$year}-";
+    
+    // Extract the maximum numeric suffix of existing roll numbers for this prefix
+    $stmt = $pdo->prepare("SELECT MAX(CAST(REPLACE(entrance_roll_no, ?, '') AS UNSIGNED)) as max_num FROM admission_inquiries WHERE entrance_roll_no LIKE ?");
+    $stmt->execute([$prefix, $prefix . '%']);
     $row = $stmt->fetch();
-    $next_id = ($row['max_id'] ?? 0) + 1;
+    
+    $next_num = ($row['max_num'] ?? 0) + 1;
     
     // Pad to 4 digits
-    $padded_id = str_pad($next_id, 4, '0', STR_PAD_LEFT);
-    return "ADM-{$year}-{$padded_id}";
+    $padded = str_pad($next_num, 4, '0', STR_PAD_LEFT);
+    return "{$prefix}{$padded}";
 }
 
 /**
@@ -167,19 +171,28 @@ function sendApprovalEmail($pdo, $inquiry_id) {
     $stmt->execute([$inquiry_id]);
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$student || empty($student['student_email'])) {
+    if (!$student) {
         return false;
     }
 
     $settings = getSchoolSettings($pdo);
     $school_name = $settings['school_name'] ?? 'School Admission Portal';
-    $org_email = $settings['school_email'] ?? ($settings['org_email'] ?? 'noreply@school.com');
+    $org_email = $settings['school_email'] ?? ($settings['org_email'] ?? '');
     $roll = htmlspecialchars($student['entrance_roll_no'] ?? 'N/A');
     $student_name = htmlspecialchars($student['student_first_name']);
     $applied_class = htmlspecialchars($student['applied_class']);
     $faculty = !empty($student['faculty_name']) ? ' — ' . htmlspecialchars($student['faculty_name']) : '';
+    $student_email = $student['student_email'] ?? '';
 
-    $to = $student['student_email'];
+    // Build recipients list — send to both student and school
+    $recipients = [];
+    if (!empty($student_email) && filter_var($student_email, FILTER_VALIDATE_EMAIL)) $recipients[] = $student_email;
+    if (!empty($org_email) && filter_var($org_email, FILTER_VALIDATE_EMAIL)) $recipients[] = $org_email;
+    $recipients = array_unique($recipients);
+
+    if (empty($recipients)) return false; // No valid email addresses available
+
+    $to = implode(',', $recipients);
     $subject = "Application Approved — " . $school_name;
 
     $allow_unpaid_admit = $settings['allow_unpaid_admit_card'] ?? '0';
@@ -591,6 +604,125 @@ function sendResultEmail($pdo, $student_id) {
     }
 
     return $success;
+}
+
+/**
+ * Send Interview Schedule & Status Email
+ *
+ * @param PDO $pdo
+ * @param int $student_id
+ * @return bool
+ */
+function sendInterviewEmail($pdo, $student_id) {
+    $stmt = $pdo->prepare("SELECT i.*, f.faculty_name
+                           FROM admission_inquiries i
+                           LEFT JOIN faculties f ON i.faculty_id = f.id
+                           WHERE i.id = ?");
+    $stmt->execute([$student_id]);
+    $student = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$student) return false;
+
+    $settings = getSchoolSettings($pdo);
+    $school_name = $settings['school_name'] ?? 'School Admission Portal';
+    $org_email = $settings['org_email'] ?? '';
+    $student_email = $student['student_email'] ?? '';
+    if (empty($student_email) || !filter_var($student_email, FILTER_VALIDATE_EMAIL)) return false;
+
+    $student_name = htmlspecialchars($student['student_first_name'] . ' ' . $student['student_last_name']);
+    $class = htmlspecialchars($student['applied_class']);
+    $faculty = !empty($student['faculty_name']) ? ' — ' . htmlspecialchars($student['faculty_name']) : '';
+    $status = $student['interview_status'] ?? 'Pending';
+    $date = $student['interview_date'] ? date('l, F j, Y', strtotime($student['interview_date'])) : 'TBD';
+    $time = $student['interview_time'] ? date('h:i A', strtotime($student['interview_time'])) : 'TBD';
+    $remarks = htmlspecialchars($student['interview_remarks'] ?? '');
+
+    $configs = [
+        'Scheduled' => [
+            'color' => '#4f46e5', 'icon' => '📅', 'title' => 'Interview Scheduled',
+            'msg' => "Your interview for <strong>{$class}{$faculty}</strong> has been scheduled!"
+        ],
+        'Selected' => [
+            'color' => '#059669', 'icon' => '🎉', 'title' => 'Interview Selection',
+            'msg' => "Congratulations! You have been successfully selected after your interview for <strong>{$class}{$faculty}</strong>."
+        ],
+        'Waitlisted' => [
+            'color' => '#d97706', 'icon' => '⏳', 'title' => 'Interview Waitlisted',
+            'msg' => "You have been placed on the waitlist following your interview."
+        ],
+        'Rejected' => [
+            'color' => '#dc2626', 'icon' => '📋', 'title' => 'Interview Update',
+            'msg' => "We regret to inform you that you were not selected for admission this term."
+        ],
+        'Pending' => [
+            'color' => '#64748b', 'icon' => '🕒', 'title' => 'Interview Pending',
+            'msg' => "Your interview status has been updated to pending."
+        ]
+    ];
+    $cfg = $configs[$status] ?? $configs['Scheduled'];
+
+    $schedule_block = '';
+    if (in_array($status, ['Scheduled', 'Pending']) && !empty($student['interview_date'])) {
+        $schedule_block = "
+        <div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:20px; margin:20px 0;'>
+            <h3 style='margin:0 0 15px; font-size:16px; color:#1e293b;'>🗓️ Schedule Details</h3>
+            <div style='display:flex; justify-content:space-between; margin-bottom:10px;'>
+                <span style='color:#64748b; font-size:14px;'>Date:</span>
+                <span style='color:#0f172a; font-weight:bold; font-size:15px;'>{$date}</span>
+            </div>
+            <div style='display:flex; justify-content:space-between;'>
+                <span style='color:#64748b; font-size:14px;'>Time:</span>
+                <span style='color:#0f172a; font-weight:bold; font-size:15px;'>{$time}</span>
+            </div>
+        </div>";
+    }
+
+    $remarks_block = '';
+    if (!empty($remarks)) {
+        $remarks_block = "
+        <div style='background:#f1f5f9; border-left:4px solid {$cfg['color']}; padding:15px; margin:20px 0;'>
+            <p style='margin:0; font-size:13px; color:#475569; font-weight:bold; text-transform:uppercase;'>Remarks / Note</p>
+            <p style='margin:5px 0 0; font-size:14px; color:#334155;'>{$remarks}</p>
+        </div>";
+    }
+
+    $subject = "Interview Update: {$status} — {$school_name}";
+
+    $html = "
+    <html>
+    <body style='font-family: Arial, sans-serif; background:#f4f7f6; margin:0; padding:20px;'>
+        <div style='max-width:600px; margin:0 auto; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,0.1);'>
+            <div style='background:{$cfg['color']}; color:#fff; padding:24px; text-align:center;'>
+                <div style='font-size:36px; margin-bottom:8px;'>{$cfg['icon']}</div>
+                <h2 style='margin:0; font-size:22px;'>{$cfg['title']}</h2>
+            </div>
+            <div style='padding:30px; color:#333;'>
+                <p style='font-size:16px; margin-top:0;'>Dear <b>{$student_name}</b>,</p>
+                <p style='font-size:15px; line-height:1.6;'>{$cfg['msg']}</p>
+                
+                {$schedule_block}
+                {$remarks_block}
+
+                <p style='margin-top:20px; font-size:14px; color:#666;'>Best regards,<br><strong>" . htmlspecialchars($school_name) . "</strong></p>
+            </div>
+            <div style='background:#f9f9f9; padding:15px; text-align:center; font-size:12px; color:#999;'>
+                " . htmlspecialchars($school_name) . " &copy; " . date('Y') . "
+            </div>
+        </div>
+    </body>
+    </html>";
+
+    $from_domain = 'school-portal.local';
+    if (isset($_SERVER['HTTP_HOST'])) {
+        $from_domain = preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST']);
+    }
+
+    $headers = "From: admissions@{$from_domain}\r\n";
+    $headers .= "Reply-To: " . ($org_email ?: "admissions@{$from_domain}") . "\r\n";
+    $headers .= "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+
+    return @mail($student_email, $subject, $html, $headers);
 }
 
 ?>

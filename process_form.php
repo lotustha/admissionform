@@ -125,9 +125,11 @@ try {
     )";
 
     $stmt = $pdo->prepare($sql);
+    // Helper to capitalize names properly (e.g. "shristi sashankar" → "Shristi Sashankar")
+    $ucname = fn($v) => ucwords(strtolower(trim($v ?? '')));
     $stmt->execute([
-        'student_first_name' => $_POST['student_first_name'],
-        'student_last_name' => $_POST['student_last_name'],
+        'student_first_name' => $ucname($_POST['student_first_name']),
+        'student_last_name'  => $ucname($_POST['student_last_name']),
         'student_email' => $_POST['student_email'] ?? null,
         'dob_bs' => $_POST['dob_bs'],
         'dob_ad' => !empty($_POST['dob_ad']) ? $_POST['dob_ad'] : null,
@@ -137,11 +139,11 @@ try {
         'address_district' => $_POST['address_district'],
         'address_municipality' => $_POST['address_municipality'],
         'address_ward_village' => $_POST['address_ward_village'],
-        'father_name' => $_POST['father_name'],
+        'father_name'        => $ucname($_POST['father_name']),
         'father_contact' => $_POST['father_contact'],
-        'mother_name' => $_POST['mother_name'] ?? null,
+        'mother_name'        => !empty($_POST['mother_name']) ? $ucname($_POST['mother_name']) : null,
         'mother_contact' => $_POST['mother_contact'] ?? null,
-        'local_guardian_name' => $_POST['local_guardian_name'] ?? null,
+        'local_guardian_name' => !empty($_POST['local_guardian_name']) ? $ucname($_POST['local_guardian_name']) : null,
         'guardian_contact' => $_POST['guardian_contact'] ?? null,
         'guardian_relation' => $_POST['guardian_relation'] ?? null,
         'applied_class' => $_POST['applied_class'],
@@ -245,13 +247,25 @@ try {
                 $dompdf_options->set('isRemoteEnabled', true);
                 $dompdf_options->set('chroot', realpath(__DIR__));
                 
-                // Application Form PDF only (Admit Card is sent after payment)
+                // Application Form PDF
                 $app_html = generateApplicationFormHTML($pdf_student, $settings, $base_dir);
                 $dompdf_app = new \Dompdf\Dompdf($dompdf_options);
                 $dompdf_app->loadHtml($app_html);
                 $dompdf_app->setPaper('A4', 'portrait');
                 $dompdf_app->render();
                 $dynamic_attachments['Application_Form.pdf'] = $dompdf_app->output();
+
+                // Admit Card PDF — attach if "Allow Unpaid Admit Cards" is enabled
+                $allow_unpaid = $settings['allow_unpaid_admit_card'] ?? '0';
+                if ($allow_unpaid === '1' && ($_POST['form_type'] ?? 'Admission') === 'Admission' && !empty($schedule_id)) {
+                    $admit_html = generateAdmitCardHTML($pdf_student, $settings, $base_dir);
+                    $dompdf_admit = new \Dompdf\Dompdf($dompdf_options);
+                    $dompdf_admit->loadHtml($admit_html);
+                    $dompdf_admit->setPaper('A4', 'portrait');
+                    $dompdf_admit->render();
+                    $admit_roll = preg_replace('/[^A-Za-z0-9_-]/', '', $entrance_roll_no ?? 'NA');
+                    $dynamic_attachments['Admit_Card_' . $admit_roll . '.pdf'] = $dompdf_admit->output();
+                }
             }
         }
 
